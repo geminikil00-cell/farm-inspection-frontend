@@ -33,12 +33,17 @@
 /* Print & Professional PDF Export Styles */
 @media print {
   @page {
-    size: A4 portrait;
-    margin: 8mm 8mm;
+    size: landscape;
+    margin: 0.2cm;
   }
   
   .print-scale-down {
-    transform: none !important;
+    transform: scale(0.95);
+    transform-origin: top right;
+  }
+  
+  [dir="ltr"] .print-scale-down {
+    transform-origin: top left;
   }
   
   html, body, #root {

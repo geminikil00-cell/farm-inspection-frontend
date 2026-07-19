@@ -555,31 +555,7 @@ function App() {
     window.print();
   };
 
-  const handleDownloadPDF = async () => {
-    const element = document.getElementById('printable-area') || document.querySelector('.print-scale-down') || document.querySelector('#main-content');
-    if (!element) {
-      window.print();
-      return;
-    }
-
-    if (window.html2pdf) {
-      const dateStr = currentData?.date || new Date().toISOString().split('T')[0];
-      const opt = {
-        margin:       [0.4, 0.4, 0.4, 0.4],
-        filename:     `Farm_Inspection_${activeTab}_${dateStr}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' },
-        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' },
-        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
-      };
-      try {
-        await window.html2pdf().set(opt).from(element).save();
-        return;
-      } catch (err) {
-        console.error('html2pdf error, falling back to print:', err);
-      }
-    }
-    
+  const handleDownloadPDF = () => {
     window.print();
   };
 
