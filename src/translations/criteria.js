@@ -629,7 +629,7 @@ export const FACILITY_TRANSLATIONS = {
 // We can define Chinese, Spanish, French, Portuguese, Russian, German, Japanese, and Hindi translations.
 // Since these are structured arrays, we can write translations for each of the other languages so that we have complete coverage.
 
-const OTHER_LANGUAGES = ['zh', 'es', 'hi', 'fr', 'pt', 'ru', 'de', 'ja'];
+const OTHER_LANGUAGES = ['zh', 'es', 'hi', 'ur', 'fr', 'pt', 'ru', 'de', 'ja'];
 
 // Let's add basic translation mappings to make the other languages fully functional.
 // We can define the titles in other languages:
@@ -637,6 +637,7 @@ const TITLES = {
   zh: { greenhouses: '温室', warehouses: '仓库', irrigation: '灌溉室', nursery: '苗圃', pesticides: '农药库', accommodation: '员工宿舍', workshop: '维护车间', scrap: '废料区', lakes: '水池', packing: '包装与包装仓库', femaleRestArea: '女性休息区', maleRestArea: '男性休息区', generalFacilities: '农场公共设施' },
   es: { greenhouses: 'Invernaderos', warehouses: 'Almacenes', irrigation: 'Sala de Riego', nursery: 'Vivero', pesticides: 'Almacén de Pesticidas', accommodation: 'Alojamiento de Trabajadores', workshop: 'Taller de Mantenimiento', scrap: 'Zona de Chatarra', lakes: 'Estanques', packing: 'Almacén de Empaque', femaleRestArea: 'Área de Descanso de Mujeres', maleRestArea: 'Área de Descanso de Hombres', generalFacilities: 'Instalaciones Generales de la Granja' },
   hi: { greenhouses: 'ग्रीनहाउस', warehouses: 'गोदाम', irrigation: 'सिंचाई कक्ष', nursery: 'नर्सरी', pesticides: 'कीटनाशक गोदام', accommodation: 'श्रमिक आवास', workshop: 'रखरखाव कार्यशाला', scrap: 'कबाड़ क्षेत्र', lakes: 'तालाब', packing: 'पैकिंग गोदाम', femaleRestArea: 'महिला विश्राम क्षेत्र', maleRestArea: 'पुरुष विश्राम क्षेत्र', generalFacilities: 'सामान्य फार्म सुविधाएं' },
+  ur: { greenhouses: 'گرین ہاؤسز', warehouses: 'گودام', irrigation: 'آبپاشی کمرہ', nursery: 'نرسری', pesticides: 'کیڑے مار ادویات کا گودام', accommodation: 'مزدوروں کی رہائش', workshop: 'مرمتی ورکشاپ', scrap: 'سکریپ ایریا', lakes: 'تالاب', packing: 'پیکنگ گودام', femaleRestArea: 'خواتین کا آرام گاہ', maleRestArea: 'مردوں کا آرام گاہ', generalFacilities: 'عام فارم سہولیات' },
   fr: { greenhouses: 'Serres', warehouses: 'Entrepôts', irrigation: 'Salle d\'Irrigation', nursery: 'Pépinière', pesticides: 'Stockage des Pesticides', accommodation: 'Logement des Ouvriers', workshop: 'Atelier de Maintenance', scrap: 'Zone de Ferraille', lakes: 'Étangs', packing: 'Entrepôt d\'Emballage', femaleRestArea: 'Zone de Repos des Femmes', maleRestArea: 'Zone de Repos des Hommes', generalFacilities: 'Installations Générales de la Ferme' },
   pt: { greenhouses: 'Estufas', warehouses: 'Armazéns', irrigation: 'Sala de Irrigação', nursery: 'Viveiro', pesticides: 'Depósito de Pesticidas', accommodation: 'Alojamento de Trabalhadores', workshop: 'Oficina de Manutenção', scrap: 'Área de Sucata', lakes: 'Lagoas', packing: 'Depósito de Embalagem', femaleRestArea: 'Área de Descanso Feminino', maleRestArea: 'Área de Descanso Masculino', generalFacilities: 'Instalações Gerais da Fazenda' },
   ru: { greenhouses: 'Теплицы', warehouses: 'Склады', irrigation: 'Ирригационная комната', nursery: 'Питомник', pesticides: 'Склад пестицидов', accommodation: 'Рабочее общежитие', workshop: 'Ремонтная мастерская', scrap: 'Зона металлолома', lakes: 'Пруды', packing: 'Упаковочный склад', femaleRestArea: 'Женская зона отдыха', maleRestArea: 'Мужская зона отдыха', generalFacilities: 'Общие объекты фермы' },
@@ -850,6 +851,7 @@ function getTranslatedItem(lang, facilityId, index, defaultText) {
     zh: '项目',
     es: 'Elemento',
     hi: 'मद',
+    ur: 'آئٹم',
     fr: 'Élément',
     pt: 'Item',
     ru: 'Пункт',

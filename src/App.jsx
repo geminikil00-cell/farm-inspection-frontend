@@ -111,6 +111,8 @@ function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState(null);
+  const [historyFull, setHistoryFull] = useState(null);
+  const [historyFullLoading, setHistoryFullLoading] = useState(false);
 
   // Active translation dictionary with automatic English fallback for un-translated keys
   const t = useMemo(() => {
@@ -190,40 +192,94 @@ function App() {
     loadDrafts();
   }, []);
 
-  // Fetch Supabase records function
-  const fetchHistory = async () => {
-    setHistoryLoading(true);
-    setHistoryError(null);
+  // Helper: normalize inspection_year/quarter on a record
+  const normalizeRecord = (r) => {
+    if (!r.inspection_year || !r.inspection_quarter) {
+      const { year, quarter } = getQuarterAndYear(r.date);
+      return { ...r, inspection_year: r.inspection_year || year, inspection_quarter: r.inspection_quarter || quarter };
+    }
+    return r;
+  };
+
+  // Fetch Supabase records function (lightweight - no data/photos, for list view)
+  const fetchHistory = async (retryCount = 0) => {
+    if (retryCount === 0) {
+      setHistoryLoading(true);
+      setHistoryError(null);
+    }
+    const MAX_RETRIES = 3;
+    try {
+      const { data, error } = await supabase
+        .from('inspection_tool_records')
+        .select('id, facility_id, facility_title, inspector, date, score, inspection_year, inspection_quarter, created_at')
+        .order('date', { ascending: false })
+        .limit(1000);
+
+      if (error) {
+        console.error("Supabase fetch error:", error);
+        if (retryCount < MAX_RETRIES) {
+          const delay = Math.pow(2, retryCount) * 1000;
+          console.warn(`Retry ${retryCount + 1}/${MAX_RETRIES} in ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+          return fetchHistory(retryCount + 1);
+        }
+        setHistoryError(error.message);
+        setHistory([]);
+      } else {
+        const normalized = (data || []).map(normalizeRecord);
+        setHistory(normalized);
+        setHistoryError(null);
+      }
+    } catch (err) {
+      console.error("Network error fetching Supabase records:", err);
+      if (retryCount < MAX_RETRIES) {
+        const delay = Math.pow(2, retryCount) * 1000;
+        console.warn(`Retry ${retryCount + 1}/${MAX_RETRIES} in ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
+        return fetchHistory(retryCount + 1);
+      }
+      setHistoryError(err.message || "Network error");
+      setHistory([]);
+    } finally {
+      if (retryCount === 0 || retryCount >= MAX_RETRIES) {
+        setHistoryLoading(false);
+      }
+    }
+  };
+
+  // Fetch full history records (including data jsonb) for analytics/comparisons
+  const fetchHistoryFull = async (retryCount = 0) => {
+    if (retryCount === 0) {
+      setHistoryFullLoading(true);
+    }
+    const MAX_RETRIES = 2;
     try {
       const { data, error } = await supabase
         .from('inspection_tool_records')
         .select('*')
-        .order('date', { ascending: false });
-      
+        .order('date', { ascending: false })
+        .limit(1000);
+
       if (error) {
-        console.error("Supabase fetch error:", error);
-        setHistoryError(error.message);
-        setHistory([]);
-      } else {
-        const normalized = (data || []).map(r => {
-          if (!r.inspection_year || !r.inspection_quarter) {
-            const { year, quarter } = getQuarterAndYear(r.date);
-            return {
-              ...r,
-              inspection_year: r.inspection_year || year,
-              inspection_quarter: r.inspection_quarter || quarter
-            };
-          }
-          return r;
-        });
-        setHistory(normalized);
+        console.error("Supabase full fetch error:", error);
+        if (retryCount < MAX_RETRIES) {
+          const delay = Math.pow(2, retryCount) * 1000;
+          await new Promise(r => setTimeout(r, delay));
+          return fetchHistoryFull(retryCount + 1);
+        }
+        throw error;
       }
+      const normalized = (data || []).map(normalizeRecord);
+      setHistoryFull(normalized);
     } catch (err) {
-      console.error("Network error fetching Supabase records:", err);
-      setHistoryError(err.message || "Network error");
-      setHistory([]);
+      console.error("Network error fetching full Supabase records:", err);
+      if (retryCount < MAX_RETRIES) {
+        const delay = Math.pow(2, retryCount) * 1000;
+        await new Promise(r => setTimeout(r, delay));
+        return fetchHistoryFull(retryCount + 1);
+      }
     } finally {
-      setHistoryLoading(false);
+      setHistoryFullLoading(false);
     }
   };
 
@@ -240,24 +296,33 @@ function App() {
           const evt = payload.eventType;
           if (evt === 'INSERT') {
             const { year, quarter } = getQuarterAndYear(payload.new.date);
-            const normalizedNew = {
+            const fullRecord = {
               ...payload.new,
               inspection_year: payload.new.inspection_year || year,
               inspection_quarter: payload.new.inspection_quarter || quarter
             };
-            setHistory(prev => [normalizedNew, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)));
+            const { data: _d, photo_urls: _p, ...lightRecord } = fullRecord;
+            setHistory(prev => [lightRecord, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)));
+            setHistoryFull(prev => prev ? [fullRecord, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)) : prev);
           } else if (evt === 'DELETE') {
             setHistory(prev => prev.filter(r => r.id !== payload.old.id));
+            setHistoryFull(prev => prev ? prev.filter(r => r.id !== payload.old.id) : prev);
           } else if (evt === 'UPDATE') {
             const { year, quarter } = getQuarterAndYear(payload.new.date);
-            const normalizedNew = {
+            const fullRecord = {
               ...payload.new,
               inspection_year: payload.new.inspection_year || year,
               inspection_quarter: payload.new.inspection_quarter || quarter
             };
+            const { data: _d, photo_urls: _p, ...lightRecord } = fullRecord;
             setHistory(prev =>
-              prev.map(r => r.id === payload.new.id ? normalizedNew : r)
+              prev.map(r => r.id === payload.new.id ? lightRecord : r)
                   .sort((a, b) => new Date(b.date) - new Date(a.date))
+            );
+            setHistoryFull(prev =>
+              prev ? prev.map(r => r.id === payload.new.id ? fullRecord : r)
+                         .sort((a, b) => new Date(b.date) - new Date(a.date))
+                   : prev
             );
           }
         })
@@ -270,6 +335,13 @@ function App() {
       if (channel) supabase.removeChannel(channel);
     };
   }, []);
+
+  // Lazy-load full history data (with data jsonb) when analytics or comparisons tab is opened
+  useEffect(() => {
+    if ((viewMode === 'analytics' || viewMode === 'comparisons') && historyFull === null) {
+      fetchHistoryFull();
+    }
+  }, [viewMode, historyFull]);
 
   // Auto-save form drafts to IndexedDB
   useEffect(() => {
@@ -518,31 +590,50 @@ function App() {
   };
 
   // Load record from history back to active form editor
-  const loadRecord = (record) => {
+  const loadRecord = async (record) => {
     if (!FACILITY_TRANSLATIONS.ar[record.facility_id]) {
       alert("Error: Unknown facility type.");
       return;
     }
 
     if (window.confirm(t.confirmLoad)) {
-      const template = FACILITY_TRANSLATIONS.ar[record.facility_id];
+      let fullRecord = record;
+
+      // If the record was loaded from lightweight query (no data column), fetch full record
+      if (!record.data) {
+        try {
+          const { data: fetched, error } = await supabase
+            .from('inspection_tool_records')
+            .select('*')
+            .eq('id', record.id)
+            .single();
+          if (error) throw error;
+          fullRecord = normalizeRecord(fetched);
+        } catch (err) {
+          console.error("Error loading full record:", err);
+          alert("Error loading record: " + err.message);
+          return;
+        }
+      }
+
+      const template = FACILITY_TRANSLATIONS.ar[fullRecord.facility_id];
       const defaultRows = template.items.map(item => ({ ...INITIAL_ROW, criteria: item }));
-      
+
       const loadedData = {
-        inspector: record.data.inspector || '',
-        date: record.data.date || new Date().toISOString().split('T')[0],
-        notes: record.data.notes || '',
-        rows: Array.isArray(record.data.rows) ? record.data.rows : defaultRows,
-        photos: Array.isArray(record.photo_urls) ? record.photo_urls : []
+        inspector: fullRecord.data.inspector || '',
+        date: fullRecord.data.date || new Date().toISOString().split('T')[0],
+        notes: fullRecord.data.notes || '',
+        rows: Array.isArray(fullRecord.data.rows) ? fullRecord.data.rows : defaultRows,
+        photos: Array.isArray(fullRecord.photo_urls) ? fullRecord.photo_urls : []
       };
 
       setFormData(prev => ({
         ...prev,
-        [record.facility_id]: loadedData
+        [fullRecord.facility_id]: loadedData
       }));
-      setActiveTab(record.facility_id);
+      setActiveTab(fullRecord.facility_id);
       setViewMode('inspection');
-      setViewingRecordId(record.id);
+      setViewingRecordId(fullRecord.id);
     }
   };
 
@@ -837,21 +928,28 @@ function App() {
             )}
 
             {viewMode === 'analytics' && (
-              <AnalyticsDashboard
-                history={history}
-                t={t}
-                lang={lang}
-              />
+              historyFullLoading ? (
+                <div className="text-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div><p className="text-gray-500">{t.loading}</p></div>
+              ) : (
+                <AnalyticsDashboard
+                  history={historyFull || history}
+                  t={t}
+                  lang={lang}
+                />
+              )
             )}
 
             {viewMode === 'comparisons' && (
-              <ComparisonPanel
-                history={history}
+              historyFullLoading ? (
+                <div className="text-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div><p className="text-gray-500">{t.loading}</p></div>
+              ) : (
+                <ComparisonPanel
+                history={historyFull || history}
                 facilities={FACILITY_TRANSLATIONS[lang] || FACILITY_TRANSLATIONS.ar}
                 t={t}
                 lang={lang}
               />
-            )}
+            ))}
           </main>
         </div>
       </div>
