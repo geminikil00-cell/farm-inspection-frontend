@@ -15,8 +15,7 @@ export const InspectionForm = ({
   activeTab,
   facilityTitle,
   currentData,
-  lastRecord,
-  scoreDifference,
+
   currentScore,
   handleHeaderChange,
   handleRowChange,
@@ -54,20 +53,7 @@ export const InspectionForm = ({
               <div className="text-4xl font-bold border-4 border-black p-2 rounded-lg">{currentScore}%</div>
               <div className="text-sm font-bold mt-1">{t.generalEval}</div>
             </div>
-            {lastRecord && (
-              <div className="text-center">
-                <div
-                  className={`text-4xl font-bold border-4 p-2 rounded-lg ${
-                    scoreDifference > 0 ? 'border-green-600 text-green-700' : scoreDifference < 0 ? 'border-red-600 text-red-700' : 'border-gray-400 text-gray-600'
-                  }`}
-                  style={{ direction: 'ltr' }}
-                >
-                  {scoreDifference > 0 ? '+' : ''}
-                  {scoreDifference}%
-                </div>
-                <div className="text-sm font-bold mt-1">{t.change}</div>
-              </div>
-            )}
+
           </div>
           
           <div className="text-start hidden sm:block">

@@ -307,20 +307,6 @@ function App() {
   const currentData = translatedFormData[activeTab];
   const currentScore = useMemo(() => currentData ? calculateScore(formData[activeTab]?.rows) : 0, [formData, activeTab]);
 
-  const lastRecord = useMemo(() => {
-    const facilityHistory = history.filter(r => r.facility_id === activeTab);
-    if (facilityHistory.length === 0) return null;
-    if (viewingRecordId) {
-      const idx = facilityHistory.findIndex(r => r.id === viewingRecordId);
-      if (idx >= 0 && idx < facilityHistory.length - 1) {
-        return facilityHistory[idx + 1];
-      }
-      return null;
-    }
-    return facilityHistory[0];
-  }, [history, activeTab, viewingRecordId]);
-
-  const scoreDifference = lastRecord ? currentScore - lastRecord.score : null;
 
   // Header change handler
   const handleHeaderChange = (field, value) => {
@@ -754,23 +740,6 @@ function App() {
 
               {viewMode === 'inspection' && (
                 <div className="flex items-center gap-1.5 sm:gap-2">
-                  {lastRecord && (
-                    <div
-                      className={`hidden sm:flex px-2.5 py-1 rounded-lg border items-center gap-2 transition-colors ${
-                        scoreDifference > 0
-                          ? 'bg-green-50 border-green-200 text-green-700'
-                          : scoreDifference < 0
-                          ? 'bg-red-50 border-red-200 text-red-700'
-                          : 'bg-gray-50 border-gray-200 text-gray-600'
-                      }`}
-                    >
-                      <span className="text-xs font-bold">{t.compareLast}</span>
-                      <div className="flex items-center gap-1 dir-ltr font-bold text-sm" style={{ direction: 'ltr' }}>
-                        {scoreDifference > 0 ? '+' : ''}
-                        {scoreDifference}%
-                      </div>
-                    </div>
-                  )}
 
                   <div className="px-2.5 py-1 sm:px-4 sm:py-1.5 bg-white rounded-lg border border-gray-200 flex items-center gap-1.5 sm:gap-3 shadow-sm">
                     <span className="text-[10px] sm:text-xs text-gray-500 font-bold">{t.score}</span>
@@ -836,8 +805,7 @@ function App() {
                   activeTab={activeTab}
                   facilityTitle={FACILITY_TRANSLATIONS[lang]?.[activeTab]?.title || FACILITY_TRANSLATIONS.ar[activeTab].title}
                   currentData={currentData}
-                  lastRecord={lastRecord}
-                  scoreDifference={scoreDifference}
+
                   currentScore={currentScore}
                   handleHeaderChange={handleHeaderChange}
                   handleRowChange={handleRowChange}
