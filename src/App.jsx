@@ -4,9 +4,10 @@ import {
   Wrench, Trash2, Waves, Package, Users, ClipboardList,
   History, BarChart3, ChevronLeft, ChevronRight, Save,
   Printer, Plus, ArrowLeftRight, Trash, Globe, Shield, RefreshCw,
-  Menu, X, FileDown
+  Menu, X, FileDown, LogOut
 } from 'lucide-react';
-import { supabase } from './supabase';
+import { api } from './api';
+import { useAuth } from './context/AuthContext';
 import { saveToDB, getFromDB } from './db';
 import { LANGUAGES, UI_TRANSLATIONS } from './translations';
 import { FACILITY_TRANSLATIONS } from './translations/criteria';
@@ -14,6 +15,7 @@ import { InspectionForm } from './components/InspectionForm';
 import { HistoryPanel } from './components/HistoryPanel';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { ComparisonPanel } from './components/ComparisonPanel';
+import { LoginPage } from './components/LoginPage';
 
 const INITIAL_ROW = {
   status: '',
@@ -38,7 +40,6 @@ const FACILITY_ICONS = {
   generalFacilities: ClipboardList
 };
 
-// Simple helper to get score color class
 const getScoreColor = (score) => {
   if (score >= 90) return 'text-green-600';
   if (score >= 80) return 'text-blue-600';
@@ -47,7 +48,6 @@ const getScoreColor = (score) => {
   return 'text-red-600';
 };
 
-// Simple helper to calculate inspector year and quarter immune to timezone parsing issues
 const getQuarterAndYear = (dateStr) => {
   if (!dateStr) {
     const d = new Date();
@@ -58,7 +58,7 @@ const getQuarterAndYear = (dateStr) => {
   }
   const parts = dateStr.split('-');
   const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10); // 1-12
+  const month = parseInt(parts[1], 10);
   let quarter = 'Q1';
   if (month >= 4 && month <= 6) quarter = 'Q2';
   else if (month >= 7 && month <= 9) quarter = 'Q3';
@@ -66,13 +66,11 @@ const getQuarterAndYear = (dateStr) => {
   return { year, quarter };
 };
 
-// Simple helper to calculate inspector score
 const calculateScore = (rows) => {
   if (!Array.isArray(rows)) return 0;
   let totalScore = 0;
   let count = 0;
-  
-  // Statically check mapping to original values
+
   const scoreMapping = {
     'ممتاز': 100,
     'جيد جداً': 80,
@@ -99,6 +97,7 @@ const calculateScore = (rows) => {
 };
 
 function App() {
+  const { isAuthenticated, username, logout } = useAuth();
   const [lang, setLang] = useState('ar');
   const [activeTab, setActiveTab] = useState('greenhouses');
   const [viewMode, setViewMode] = useState('inspection');
@@ -113,8 +112,11 @@ function App() {
   const [historyError, setHistoryError] = useState(null);
   const [historyFull, setHistoryFull] = useState(null);
   const [historyFullLoading, setHistoryFullLoading] = useState(false);
+  const [analyticsSummary, setAnalyticsSummary] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [comparisonData, setComparisonData] = useState(null);
+  const [comparisonLoading, setComparisonLoading] = useState(false);
 
-  // Active translation dictionary with automatic English fallback for un-translated keys
   const t = useMemo(() => {
     const current = UI_TRANSLATIONS[lang] || UI_TRANSLATIONS.en;
     return new Proxy(current, {
@@ -128,31 +130,27 @@ function App() {
     return activeLang ? activeLang.dir === 'rtl' : true;
   }, [lang]);
 
-  // Sync online status
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.removeEventListener('offline', handleOffline);
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  // Set html document lang & dir dynamically
   useEffect(() => {
     const currentLangObj = LANGUAGES.find(l => l.code === lang) || LANGUAGES[0];
     document.documentElement.dir = currentLangObj.dir;
     document.documentElement.lang = currentLangObj.code;
   }, [lang]);
 
-  // Load drafts on mount
   useEffect(() => {
     const loadDrafts = async () => {
       const initialData = {};
-      
-      // Use Arabic template keys dynamically mapped to chosen criteria
+
       const templateCriteria = FACILITY_TRANSLATIONS.ar;
 
       Object.keys(templateCriteria).forEach(key => {
@@ -192,7 +190,6 @@ function App() {
     loadDrafts();
   }, []);
 
-  // Helper: normalize inspection_year/quarter on a record
   const normalizeRecord = (r) => {
     if (!r.inspection_year || !r.inspection_quarter) {
       const { year, quarter } = getQuarterAndYear(r.date);
@@ -201,149 +198,85 @@ function App() {
     return r;
   };
 
-  // Fetch Supabase records function (lightweight - no data/photos, for list view)
-  const fetchHistory = async (retryCount = 0) => {
-    if (retryCount === 0) {
-      setHistoryLoading(true);
-      setHistoryError(null);
-    }
-    const MAX_RETRIES = 3;
+  const fetchHistory = async () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
     try {
-      const { data, error } = await supabase
-        .from('inspection_tool_records')
-        .select('id, facility_id, facility_title, inspector, date, score, inspection_year, inspection_quarter, created_at')
-        .order('date', { ascending: false })
-        .limit(1000);
-
-      if (error) {
-        console.error("Supabase fetch error:", error);
-        if (retryCount < MAX_RETRIES) {
-          const delay = Math.pow(2, retryCount) * 1000;
-          console.warn(`Retry ${retryCount + 1}/${MAX_RETRIES} in ${delay}ms...`);
-          await new Promise(r => setTimeout(r, delay));
-          return fetchHistory(retryCount + 1);
-        }
-        setHistoryError(error.message);
-        setHistory([]);
-      } else {
-        const normalized = (data || []).map(normalizeRecord);
-        setHistory(normalized);
-        setHistoryError(null);
-      }
+      const data = await api.getRecords();
+      const normalized = (data.records || []).map(normalizeRecord);
+      setHistory(normalized);
+      setHistoryError(null);
     } catch (err) {
-      console.error("Network error fetching Supabase records:", err);
-      if (retryCount < MAX_RETRIES) {
-        const delay = Math.pow(2, retryCount) * 1000;
-        console.warn(`Retry ${retryCount + 1}/${MAX_RETRIES} in ${delay}ms...`);
-        await new Promise(r => setTimeout(r, delay));
-        return fetchHistory(retryCount + 1);
-      }
-      setHistoryError(err.message || "Network error");
+      console.error("API fetch error:", err);
+      setHistoryError(err.message);
       setHistory([]);
     } finally {
-      if (retryCount === 0 || retryCount >= MAX_RETRIES) {
-        setHistoryLoading(false);
-      }
+      setHistoryLoading(false);
     }
   };
 
-  // Fetch full history records (including data jsonb) for analytics/comparisons
-  const fetchHistoryFull = async (retryCount = 0) => {
-    if (retryCount === 0) {
-      setHistoryFullLoading(true);
-    }
-    const MAX_RETRIES = 2;
+  const fetchHistoryFull = async () => {
+    setHistoryFullLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('inspection_tool_records')
-        .select('*')
-        .order('date', { ascending: false })
-        .limit(1000);
-
-      if (error) {
-        console.error("Supabase full fetch error:", error);
-        if (retryCount < MAX_RETRIES) {
-          const delay = Math.pow(2, retryCount) * 1000;
-          await new Promise(r => setTimeout(r, delay));
-          return fetchHistoryFull(retryCount + 1);
-        }
-        throw error;
+      const data = await api.getRecords();
+      const records = data.records || [];
+      const fullRecords = [];
+      for (const r of records) {
+        try {
+          const full = await api.getRecord(r.id);
+          fullRecords.push(normalizeRecord(full.record));
+        } catch (_) {}
       }
-      const normalized = (data || []).map(normalizeRecord);
-      setHistoryFull(normalized);
+      setHistoryFull(fullRecords);
     } catch (err) {
-      console.error("Network error fetching full Supabase records:", err);
-      if (retryCount < MAX_RETRIES) {
-        const delay = Math.pow(2, retryCount) * 1000;
-        await new Promise(r => setTimeout(r, delay));
-        return fetchHistoryFull(retryCount + 1);
-      }
+      console.error("Error fetching full records:", err);
     } finally {
       setHistoryFullLoading(false);
     }
   };
 
-  // Fetch initial records and subscribe to realtime updates
-  useEffect(() => {
-    fetchHistory();
-
-    // Subscribe to realtime changes in public.inspection_tool_records
-    let channel;
+  const fetchAnalytics = async (year, quarter) => {
+    setAnalyticsLoading(true);
     try {
-      channel = supabase
-        .channel('records_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'inspection_tool_records' }, (payload) => {
-          const evt = payload.eventType;
-          if (evt === 'INSERT') {
-            const { year, quarter } = getQuarterAndYear(payload.new.date);
-            const fullRecord = {
-              ...payload.new,
-              inspection_year: payload.new.inspection_year || year,
-              inspection_quarter: payload.new.inspection_quarter || quarter
-            };
-            const { data: _d, photo_urls: _p, ...lightRecord } = fullRecord;
-            setHistory(prev => [lightRecord, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)));
-            setHistoryFull(prev => prev ? [fullRecord, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)) : prev);
-          } else if (evt === 'DELETE') {
-            setHistory(prev => prev.filter(r => r.id !== payload.old.id));
-            setHistoryFull(prev => prev ? prev.filter(r => r.id !== payload.old.id) : prev);
-          } else if (evt === 'UPDATE') {
-            const { year, quarter } = getQuarterAndYear(payload.new.date);
-            const fullRecord = {
-              ...payload.new,
-              inspection_year: payload.new.inspection_year || year,
-              inspection_quarter: payload.new.inspection_quarter || quarter
-            };
-            const { data: _d, photo_urls: _p, ...lightRecord } = fullRecord;
-            setHistory(prev =>
-              prev.map(r => r.id === payload.new.id ? lightRecord : r)
-                  .sort((a, b) => new Date(b.date) - new Date(a.date))
-            );
-            setHistoryFull(prev =>
-              prev ? prev.map(r => r.id === payload.new.id ? fullRecord : r)
-                         .sort((a, b) => new Date(b.date) - new Date(a.date))
-                   : prev
-            );
-          }
-        })
-        .subscribe();
+      const data = await api.getAnalyticsSummary({ year, quarter });
+      setAnalyticsSummary(data);
     } catch (err) {
-      console.warn("Realtime sync channel setup failed:", err);
+      console.error("Analytics fetch error:", err);
+    } finally {
+      setAnalyticsLoading(false);
     }
+  };
 
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, []);
+  const fetchComparison = async (params) => {
+    setComparisonLoading(true);
+    try {
+      const data = await api.getAnalyticsComparison(params);
+      setComparisonData(data);
+    } catch (err) {
+      console.error("Comparison fetch error:", err);
+    } finally {
+      setComparisonLoading(false);
+    }
+  };
 
-  // Lazy-load full history data (with data jsonb) when analytics or comparisons tab is opened
   useEffect(() => {
-    if ((viewMode === 'analytics' || viewMode === 'comparisons') && historyFull === null) {
+    if (isAuthenticated) {
+      fetchHistory();
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if ((viewMode === 'analytics' || viewMode === 'comparisons') && historyFull === null && isAuthenticated) {
       fetchHistoryFull();
     }
-  }, [viewMode, historyFull]);
+  }, [viewMode, historyFull, isAuthenticated]);
 
-  // Auto-save form drafts to IndexedDB
+  useEffect(() => {
+    if (viewMode === 'analytics' && isAuthenticated) {
+      fetchAnalytics();
+    }
+  }, [viewMode, isAuthenticated]);
+
   useEffect(() => {
     if (isDataLoaded && Object.keys(formData).length > 0) {
       const timer = setTimeout(() => {
@@ -353,13 +286,11 @@ function App() {
     }
   }, [formData, isDataLoaded]);
 
-  // Map Arabic template criteria dynamically to current lang
   const translatedFormData = useMemo(() => {
     if (Object.keys(formData).length === 0) return {};
-    
+
     const translated = { ...formData };
-    
-    // Switch criteria text on the fly based on active language
+
     Object.keys(translated).forEach(facilityId => {
       if (translated[facilityId]?.rows) {
         translated[facilityId].rows = translated[facilityId].rows.map((row, idx) => {
@@ -371,16 +302,13 @@ function App() {
         });
       }
     });
-    
+
     return translated;
   }, [formData, lang]);
 
-  // Compute analytics
   const currentData = translatedFormData[activeTab];
   const currentScore = useMemo(() => currentData ? calculateScore(formData[activeTab]?.rows) : 0, [formData, activeTab]);
 
-
-  // Header change handler
   const handleHeaderChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -391,7 +319,6 @@ function App() {
     }));
   };
 
-  // Row status/action/responsible change handler
   const handleRowChange = (index, field, value) => {
     setFormData(prev => {
       const newRows = [...prev[activeTab].rows];
@@ -406,7 +333,6 @@ function App() {
     });
   };
 
-  // Photo compressor helper
   const compressImage = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -445,7 +371,6 @@ function App() {
     });
   };
 
-  // Handle file uploads
   const handlePhotoUpload = async (event) => {
     const files = Array.from(event.target.files);
     const newPhotos = [];
@@ -464,7 +389,6 @@ function App() {
     }));
   };
 
-  // Remove photo from drafts
   const removePhoto = (index) => {
     setFormData(prev => ({
       ...prev,
@@ -475,7 +399,6 @@ function App() {
     }));
   };
 
-  // Reset form
   const resetForm = (tabId) => {
     const templateCriteria = FACILITY_TRANSLATIONS.ar;
     setFormData(prev => ({
@@ -497,7 +420,6 @@ function App() {
     }
   };
 
-  // Save inspection to Supabase (and storage bucket)
   const saveToHistory = async () => {
     const currentRaw = formData[activeTab];
     if (!currentRaw.inspector) {
@@ -506,66 +428,49 @@ function App() {
     }
 
     try {
-      const score = calculateScore(currentRaw.rows);
-      const photoUrls = [];
+      let photoPaths = [];
 
-      // If online and we have photos, upload them
-      if (currentRaw.photos && currentRaw.photos.length > 0) {
-        for (let i = 0; i < currentRaw.photos.length; i++) {
-          const base64 = currentRaw.photos[i];
-          try {
-            const resp = await fetch(base64);
-            const blob = await resp.blob();
-            const ext = base64.startsWith('data:image/png') ? 'png' : 'jpg';
-            const fileName = `${activeTab}_${Date.now()}_${i}.${ext}`;
-            
-            const { data: uploadData, error: uploadError } = await supabase.storage
-              .from('inspection_tool_photos')
-              .upload(fileName, blob, { contentType: `image/${ext}`, upsert: true });
-
-            if (uploadError) {
-              console.error("Storage upload failed, falling back to base64:", uploadError);
-              photoUrls.push(base64);
-            } else {
-              const { data: urlData } = supabase.storage
-                .from('inspection_tool_photos')
-                .getPublicUrl(fileName);
-              photoUrls.push(urlData.publicUrl);
-            }
-          } catch (uploadErr) {
-            console.error("Photo process failed, pushing base64:", uploadErr);
-            photoUrls.push(base64);
+      if (currentRaw.photos && currentRaw.photos.length > 0 && isOnline) {
+        try {
+          const base64Photos = currentRaw.photos.filter(p => p.startsWith('data:'));
+          if (base64Photos.length > 0) {
+            const uploadResult = await api.uploadPhotos(base64Photos);
+            photoPaths = uploadResult.photo_paths || [];
           }
+          const urlPhotos = currentRaw.photos.filter(p => !p.startsWith('data:'));
+          photoPaths = [...photoPaths, ...urlPhotos];
+        } catch (uploadErr) {
+          console.error("Photo upload failed:", uploadErr);
+          photoPaths = currentRaw.photos;
         }
+      } else {
+        photoPaths = currentRaw.photos || [];
       }
 
-      // Snapshot inspection record
       const activeCriteria = FACILITY_TRANSLATIONS[lang]?.[activeTab] || FACILITY_TRANSLATIONS.ar[activeTab];
       const snapshotRows = currentRaw.rows.map((row, idx) => ({
         ...row,
         criteria: activeCriteria.items[idx] || row.criteria
       }));
 
-      const { year, quarter } = getQuarterAndYear(currentRaw.date);
-      const newRecord = {
+      await api.createRecord({
         facility_id: activeTab,
         facility_title: FACILITY_TRANSLATIONS[lang]?.[activeTab]?.title || FACILITY_TRANSLATIONS.ar[activeTab].title,
         inspector: currentRaw.inspector,
         date: currentRaw.date,
-        inspection_year: year,
-        inspection_quarter: quarter,
         data: {
           inspector: currentRaw.inspector,
           date: currentRaw.date,
           notes: currentRaw.notes,
           rows: snapshotRows
         },
-        score: score,
-        photo_urls: photoUrls
-      };
+        photo_paths: photoPaths
+      });
 
-      const { error } = await supabase.from('inspection_tool_records').insert(newRecord);
-      if (error) throw error;
+      fetchHistory();
+      setHistoryFull(null);
+      setAnalyticsSummary(null);
+      setComparisonData(null);
 
       if (window.confirm(t.confirmSave)) {
         resetForm(activeTab);
@@ -576,12 +481,13 @@ function App() {
     }
   };
 
-  // Delete inspection record
   const deleteRecord = async (id) => {
     if (window.confirm(t.confirmDelete)) {
       try {
-        const { error } = await supabase.from('inspection_tool_records').delete().eq('id', id);
-        if (error) throw error;
+        await api.deleteRecord(id);
+        setHistory(prev => prev.filter(r => r.id !== id));
+        setHistoryFull(prev => prev ? prev.filter(r => r.id !== id) : prev);
+        setAnalyticsSummary(null);
       } catch (err) {
         console.error("Delete record error:", err);
         alert("Deletion Error: " + err.message);
@@ -589,7 +495,6 @@ function App() {
     }
   };
 
-  // Load record from history back to active form editor
   const loadRecord = async (record) => {
     if (!FACILITY_TRANSLATIONS.ar[record.facility_id]) {
       alert("Error: Unknown facility type.");
@@ -597,43 +502,32 @@ function App() {
     }
 
     if (window.confirm(t.confirmLoad)) {
-      let fullRecord = record;
+      try {
+        const { record: fullRecord } = await api.getRecord(record.id);
+        const normalized = normalizeRecord(fullRecord);
 
-      // If the record was loaded from lightweight query (no data column), fetch full record
-      if (!record.data) {
-        try {
-          const { data: fetched, error } = await supabase
-            .from('inspection_tool_records')
-            .select('*')
-            .eq('id', record.id)
-            .single();
-          if (error) throw error;
-          fullRecord = normalizeRecord(fetched);
-        } catch (err) {
-          console.error("Error loading full record:", err);
-          alert("Error loading record: " + err.message);
-          return;
-        }
+        const template = FACILITY_TRANSLATIONS.ar[normalized.facility_id];
+        const defaultRows = template.items.map(item => ({ ...INITIAL_ROW, criteria: item }));
+
+        const loadedData = {
+          inspector: normalized.data.inspector || '',
+          date: normalized.data.date || new Date().toISOString().split('T')[0],
+          notes: normalized.data.notes || '',
+          rows: Array.isArray(normalized.data.rows) ? normalized.data.rows : defaultRows,
+          photos: Array.isArray(normalized.photo_paths) ? normalized.photo_paths : []
+        };
+
+        setFormData(prev => ({
+          ...prev,
+          [normalized.facility_id]: loadedData
+        }));
+        setActiveTab(normalized.facility_id);
+        setViewMode('inspection');
+        setViewingRecordId(normalized.id);
+      } catch (err) {
+        console.error("Error loading full record:", err);
+        alert("Error loading record: " + err.message);
       }
-
-      const template = FACILITY_TRANSLATIONS.ar[fullRecord.facility_id];
-      const defaultRows = template.items.map(item => ({ ...INITIAL_ROW, criteria: item }));
-
-      const loadedData = {
-        inspector: fullRecord.data.inspector || '',
-        date: fullRecord.data.date || new Date().toISOString().split('T')[0],
-        notes: fullRecord.data.notes || '',
-        rows: Array.isArray(fullRecord.data.rows) ? fullRecord.data.rows : defaultRows,
-        photos: Array.isArray(fullRecord.photo_urls) ? fullRecord.photo_urls : []
-      };
-
-      setFormData(prev => ({
-        ...prev,
-        [fullRecord.facility_id]: loadedData
-      }));
-      setActiveTab(fullRecord.facility_id);
-      setViewMode('inspection');
-      setViewingRecordId(fullRecord.id);
     }
   };
 
@@ -644,6 +538,10 @@ function App() {
   const handleDownloadPDF = () => {
     window.print();
   };
+
+  if (!isAuthenticated) {
+    return <LoginPage t={t} />;
+  }
 
   if (!isDataLoaded || !currentData) {
     return (
@@ -657,8 +555,7 @@ function App() {
   return (
     <div className={`min-h-screen bg-gray-50 flex flex-col ${isRtl ? 'text-right' : 'text-left'}`} dir={isRtl ? 'rtl' : 'ltr'}>
       <div className="flex h-screen overflow-hidden">
-        
-        {/* Mobile Backdrop Overlay */}
+
         {showSidebar && (
           <div
             className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden transition-opacity"
@@ -667,7 +564,6 @@ function App() {
           />
         )}
 
-        {/* Sidebar Nav */}
         <aside
           className={`sidebar bg-slate-900 text-white flex-shrink-0 transition-all duration-300 ease-in-out no-print overflow-y-auto 
             fixed inset-y-0 start-0 z-50 md:static md:z-auto ${
@@ -691,7 +587,7 @@ function App() {
           </div>
           <nav className="p-4 space-y-2">
             <div className="text-xs text-slate-500 font-bold px-2 mb-2">{t.siteInspection}</div>
-            
+
             {Object.keys(FACILITY_TRANSLATIONS[lang] || FACILITY_TRANSLATIONS.ar).map(key => {
               const Icon = FACILITY_ICONS[key] || Sprout;
               const title = FACILITY_TRANSLATIONS[lang]?.[key]?.title || FACILITY_TRANSLATIONS.ar[key].title;
@@ -718,7 +614,7 @@ function App() {
             })}
 
             <div className="my-4 border-t border-slate-700"></div>
-            
+
             <button
               onClick={() => {
                 setViewMode('history');
@@ -732,7 +628,7 @@ function App() {
               <History size={20} className="flex-shrink-0" />
               <span>{t.archive}</span>
             </button>
-            
+
             <button
               onClick={() => {
                 setViewMode('analytics');
@@ -761,16 +657,22 @@ function App() {
               <span>{t.comparisons}</span>
             </button>
           </nav>
-          
-          <div className="p-4 mt-auto border-t border-slate-800 text-xs text-slate-500 text-center flex flex-col gap-1">
+
+          <div className="p-4 mt-auto border-t border-slate-800 text-xs text-slate-500 text-center flex flex-col gap-2">
             <span>{t.version}</span>
+            <span className="text-slate-400">{username}</span>
+            <button
+              onClick={logout}
+              className="text-red-400 hover:text-red-300 flex items-center justify-center gap-1"
+            >
+              <LogOut size={12} />
+              <span>{t.logout || 'Logout'}</span>
+            </button>
           </div>
         </aside>
 
-        {/* Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
-          
-          {/* Header */}
+
           <header className="bg-white shadow-sm border-b px-3 py-3 sm:px-6 sm:py-4 flex flex-wrap items-center justify-between gap-2 no-print z-10">
             <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <button
@@ -799,7 +701,6 @@ function App() {
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-3">
-              {/* Language Selection */}
               <div className="relative flex items-center gap-1 bg-gray-100 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 shadow-sm focus-within:ring-2 focus-within:ring-green-500 text-xs sm:text-sm">
                 <Globe size={14} className="text-gray-500 flex-shrink-0" />
                 <select
@@ -816,7 +717,6 @@ function App() {
                 </select>
               </div>
 
-              {/* Online/Offline Status */}
               <div
                 className={`p-1.5 rounded-full flex items-center justify-center border ${
                   isOnline
@@ -888,7 +788,6 @@ function App() {
             </div>
           </header>
 
-          {/* Subview router */}
           <main className="flex-1 overflow-auto p-4 sm:p-8" id="main-content" role="main">
             {viewMode === 'inspection' && (
               <div className="print-scale-down" id="printable-area">
@@ -896,7 +795,6 @@ function App() {
                   activeTab={activeTab}
                   facilityTitle={FACILITY_TRANSLATIONS[lang]?.[activeTab]?.title || FACILITY_TRANSLATIONS.ar[activeTab].title}
                   currentData={currentData}
-
                   currentScore={currentScore}
                   handleHeaderChange={handleHeaderChange}
                   handleRowChange={handleRowChange}
@@ -928,28 +826,33 @@ function App() {
             )}
 
             {viewMode === 'analytics' && (
-              historyFullLoading ? (
+              analyticsLoading ? (
                 <div className="text-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div><p className="text-gray-500">{t.loading}</p></div>
               ) : (
                 <AnalyticsDashboard
-                  history={historyFull || history}
+                  summaryData={analyticsSummary}
+                  history={history}
                   t={t}
                   lang={lang}
+                  onFilterChange={fetchAnalytics}
                 />
               )
             )}
 
             {viewMode === 'comparisons' && (
-              historyFullLoading ? (
+              comparisonLoading ? (
                 <div className="text-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div><p className="text-gray-500">{t.loading}</p></div>
               ) : (
                 <ComparisonPanel
-                history={historyFull || history}
-                facilities={FACILITY_TRANSLATIONS[lang] || FACILITY_TRANSLATIONS.ar}
-                t={t}
-                lang={lang}
-              />
-            ))}
+                  summaryData={comparisonData}
+                  history={history}
+                  facilities={FACILITY_TRANSLATIONS[lang] || FACILITY_TRANSLATIONS.ar}
+                  t={t}
+                  lang={lang}
+                  onFetchComparison={fetchComparison}
+                />
+              )
+            )}
           </main>
         </div>
       </div>
