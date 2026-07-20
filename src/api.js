@@ -118,6 +118,37 @@ export const api = {
 
   deleteUser: (id) =>
     request(`/api/admin/org/users/${id}`, { method: 'DELETE' }),
+
+  getTemplates: (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.status) params.set('status', filters.status);
+    if (filters.category) params.set('category', filters.category);
+    const qs = params.toString();
+    return request(`/api/templates${qs ? `?${qs}` : ''}`);
+  },
+
+  getTemplate: (id) => request(`/api/templates/${id}`),
+
+  createTemplate: (data) =>
+    request('/api/templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateTemplate: (id, data) =>
+    request(`/api/templates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  publishTemplate: (id) =>
+    request(`/api/templates/${id}/publish`, { method: 'POST' }),
+
+  deleteTemplate: (id) =>
+    request(`/api/templates/${id}`, { method: 'DELETE' }),
+
+  archiveTemplate: (id) =>
+    request(`/api/templates/${id}/archive`, { method: 'POST' }),
 };
 
 function dataURLtoBlob(dataurl) {
