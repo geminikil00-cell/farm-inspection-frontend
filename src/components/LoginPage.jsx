@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sprout, User, Lock, LogIn, UserPlus, AlertCircle } from 'lucide-react';
+import { Sprout, User, Lock, LogIn, UserPlus, AlertCircle, Building2, BadgeCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export function LoginPage({ t }) {
@@ -7,13 +7,15 @@ export function LoginPage({ t }) {
   const [isRegister, setIsRegister] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [orgName, setOrgName] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     try {
       if (isRegister) {
-        await register(username, password);
+        await register(username, password, fullName, orgName);
       } else {
         await login(username, password);
       }
@@ -28,7 +30,9 @@ export function LoginPage({ t }) {
             <Sprout className="w-8 h-8 text-green-600" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">{t.title || 'Farm Inspection Tool'}</h1>
-          <p className="text-gray-500 mt-1">{isRegister ? (t.createAccount || 'Create Account') : (t.signIn || 'Sign In')}</p>
+          <p className="text-gray-500 mt-1">
+            {isRegister ? (t.createAccount || 'Create Account') : (t.signIn || 'Sign In')}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 space-y-4">
@@ -69,9 +73,41 @@ export function LoginPage({ t }) {
               minLength={6}
               autoComplete={isRegister ? 'new-password' : 'current-password'}
               className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-sm"
-              placeholder="••••••"
+              placeholder="\u2022\u2022\u2022\u2022\u2022\u2022"
             />
           </div>
+
+          {isRegister && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <BadgeCheck size={14} className="inline mr-1" />
+                  {t.fullName || 'Full Name'}
+                </label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-sm"
+                  placeholder={t.fullName || 'Full Name'}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <Building2 size={14} className="inline mr-1" />
+                  {t.orgName || 'Organization Name'}
+                </label>
+                <input
+                  type="text"
+                  value={orgName}
+                  onChange={(e) => setOrgName(e.target.value)}
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-sm"
+                  placeholder={t.orgNamePlaceholder || 'Your farm or company name'}
+                />
+              </div>
+            </>
+          )}
 
           <button
             type="submit"

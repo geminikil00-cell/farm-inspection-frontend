@@ -25,10 +25,10 @@ const request = async (path, options = {}) => {
 };
 
 export const api = {
-  register: (username, password) =>
+  register: (username, password, fullName, orgName) =>
     request('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, fullName, orgName }),
     }),
 
   login: (username, password) =>
@@ -36,6 +36,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     }),
+
+  getMe: () => request('/api/auth/me'),
 
   getRecords: (filters = {}) => {
     const params = new URLSearchParams();
@@ -91,6 +93,31 @@ export const api = {
     });
     return request(`/api/analytics/comparison?${sp.toString()}`);
   },
+
+  getOrg: () => request('/api/admin/org'),
+
+  updateOrg: (data) =>
+    request('/api/admin/org', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  getOrgUsers: () => request('/api/admin/org/users'),
+
+  createUser: (data) =>
+    request('/api/admin/org/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateUser: (id, data) =>
+    request(`/api/admin/org/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteUser: (id) =>
+    request(`/api/admin/org/users/${id}`, { method: 'DELETE' }),
 };
 
 function dataURLtoBlob(dataurl) {

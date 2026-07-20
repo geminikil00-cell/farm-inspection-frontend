@@ -4,10 +4,10 @@ import {
   Wrench, Trash2, Waves, Package, Users, ClipboardList,
   History, BarChart3, ChevronLeft, ChevronRight, Save,
   Printer, Plus, ArrowLeftRight, Trash, Globe, Shield, RefreshCw,
-  Menu, X, FileDown, LogOut
+  Menu, X, FileDown, LogOut, Settings, ShieldCheck
 } from 'lucide-react';
 import { api } from './api';
-import { useAuth } from './context/AuthContext';
+import { useAuth, ROLES } from './context/AuthContext';
 import { saveToDB, getFromDB } from './db';
 import { LANGUAGES, UI_TRANSLATIONS } from './translations';
 import { FACILITY_TRANSLATIONS } from './translations/criteria';
@@ -16,6 +16,7 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { ComparisonPanel } from './components/ComparisonPanel';
 import { LoginPage } from './components/LoginPage';
+import { AdminPortal } from './components/AdminPortal';
 
 const INITIAL_ROW = {
   status: '',
@@ -97,7 +98,7 @@ const calculateScore = (rows) => {
 };
 
 function App() {
-  const { isAuthenticated, username, logout } = useAuth();
+  const { isAuthenticated, username, logout, role, orgName } = useAuth();
   const [lang, setLang] = useState('ar');
   const [activeTab, setActiveTab] = useState('greenhouses');
   const [viewMode, setViewMode] = useState('inspection');
@@ -656,11 +657,34 @@ function App() {
               <ArrowLeftRight size={20} className="flex-shrink-0" />
               <span>{t.comparisons}</span>
             </button>
+
+            {(role === ROLES.SUPER_ADMIN || role === ROLES.ORG_ADMIN) && (
+              <>
+                <div className="my-4 border-t border-slate-700"></div>
+                <button
+                  onClick={() => {
+                    setViewMode('admin');
+                    if (window.innerWidth < 768) setShowSidebar(false);
+                  }}
+                  className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
+                    viewMode === 'admin' ? 'bg-indigo-600 text-white shadow-lg font-bold' : 'hover:bg-slate-800 text-slate-300'
+                  }`}
+                  aria-current={viewMode === 'admin' ? 'page' : undefined}
+                >
+                  <Settings size={20} className="flex-shrink-0" />
+                  <span>{t.adminPanel || 'Admin Panel'}</span>
+                </button>
+              </>
+            )}
           </nav>
 
           <div className="p-4 mt-auto border-t border-slate-800 text-xs text-slate-500 text-center flex flex-col gap-2">
-            <span>{t.version}</span>
-            <span className="text-slate-400">{username}</span>
+            <div className="flex items-center justify-center gap-1">
+              <ShieldCheck size={12} className="text-green-400" />
+              <span className="text-slate-400">{t[role] || role}</span>
+            </div>
+            <span className="text-slate-400 truncate">{orgName}</span>
+            <span>{username}</span>
             <button
               onClick={logout}
               className="text-red-400 hover:text-red-300 flex items-center justify-center gap-1"
@@ -695,6 +719,8 @@ function App() {
                     ? t.historyHeader
                     : viewMode === 'comparisons'
                     ? t.comparisons
+                    : viewMode === 'admin'
+                    ? t.adminPanel || 'Admin Panel'
                     : t.analytics}
                 </h2>
               </div>
@@ -852,6 +878,10 @@ function App() {
                   onFetchComparison={fetchComparison}
                 />
               )
+            )}
+
+            {viewMode === 'admin' && (
+              <AdminPortal t={t} />
             )}
           </main>
         </div>
