@@ -149,6 +149,37 @@ export const api = {
 
   archiveTemplate: (id) =>
     request(`/api/templates/${id}/archive`, { method: 'POST' }),
+
+  getAudits: (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.status) params.set('status', filters.status);
+    if (filters.template_id) params.set('template_id', filters.template_id);
+    const qs = params.toString();
+    return request(`/api/audits${qs ? `?${qs}` : ''}`);
+  },
+
+  getAudit: (id) => request(`/api/audits/${id}`),
+
+  createAudit: (data) =>
+    request('/api/audits', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateAuditResponses: (id, data) =>
+    request(`/api/audits/${id}/responses`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  submitAudit: (id, responses) =>
+    request(`/api/audits/${id}/submit`, {
+      method: 'POST',
+      body: JSON.stringify({ responses }),
+    }),
+
+  deleteAudit: (id) =>
+    request(`/api/audits/${id}`, { method: 'DELETE' }),
 };
 
 function dataURLtoBlob(dataurl) {
