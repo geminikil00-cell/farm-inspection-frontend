@@ -4,7 +4,7 @@ import {
   Wrench, Trash2, Waves, Package, Users, ClipboardList,
   History, BarChart3, ChevronLeft, ChevronRight, Save,
   Printer, Plus, ArrowLeftRight, Trash, Globe, Shield, RefreshCw,
-  Menu, X, FileDown, LogOut, Settings, ShieldCheck, ClipboardCheck, AlertOctagon
+  Menu, X, FileDown, LogOut, Settings, ShieldCheck, ClipboardCheck, AlertOctagon, LayoutDashboard
 } from 'lucide-react';
 import { api } from './api';
 import { useAuth, ROLES } from './context/AuthContext';
@@ -20,6 +20,7 @@ import { AdminPortal } from './components/AdminPortal';
 import { AuditList } from './components/AuditList';
 import { AuditExecution } from './components/AuditExecution';
 import { NCKanbanBoard } from './components/NCKanbanBoard';
+import { Dashboard } from './components/Dashboard';
 
 const INITIAL_ROW = {
   status: '',
@@ -104,7 +105,7 @@ function App() {
   const { isAuthenticated, username, logout, role, orgName } = useAuth();
   const [lang, setLang] = useState('ar');
   const [activeTab, setActiveTab] = useState('greenhouses');
-  const [viewMode, setViewMode] = useState('inspection');
+  const [viewMode, setViewMode] = useState('dashboard');
   const [formData, setFormData] = useState({});
   const [history, setHistory] = useState([]);
   const [showSidebar, setShowSidebar] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
@@ -548,7 +549,7 @@ function App() {
     return <LoginPage t={t} />;
   }
 
-  if (!isDataLoaded || !currentData) {
+  if (!isDataLoaded || (viewMode === 'inspection' && !currentData)) {
     return (
       <div className="flex flex-col gap-4 items-center justify-center h-screen bg-gray-50 text-gray-700">
         <RefreshCw className="w-8 h-8 animate-spin text-green-600" />
@@ -591,125 +592,126 @@ function App() {
             </button>
           </div>
           <nav className="p-4 space-y-2">
-            <div className="text-xs text-slate-500 font-bold px-2 mb-2">{t.siteInspection}</div>
+            <div className="text-xs text-slate-500 font-bold px-2 mb-2">{t.portal || 'Portal'}</div>
 
-            {Object.keys(FACILITY_TRANSLATIONS[lang] || FACILITY_TRANSLATIONS.ar).map(key => {
-              const Icon = FACILITY_ICONS[key] || Sprout;
-              const title = FACILITY_TRANSLATIONS[lang]?.[key]?.title || FACILITY_TRANSLATIONS.ar[key].title;
-              return (
-                <button
-                  key={key}
-                  onClick={() => {
-                    setActiveTab(key);
-                    setViewMode('inspection');
-                    setViewingRecordId(null);
-                    if (window.innerWidth < 768) setShowSidebar(false);
-                  }}
-                  className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
-                    activeTab === key && viewMode === 'inspection'
-                      ? 'bg-green-600 text-white shadow-lg font-bold'
-                      : 'hover:bg-slate-800 text-slate-300'
-                  }`}
-                  aria-current={activeTab === key && viewMode === 'inspection' ? 'page' : undefined}
-                >
-                  <Icon className="w-5 h-5 flex-shrink-0" />
-                  <span className="truncate">{title}</span>
-                </button>
-              );
-            })}
+            <button
+              onClick={() => { setViewMode('dashboard'); setActiveAudit(null); if (window.innerWidth < 768) setShowSidebar(false); }}
+              className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
+                viewMode === 'dashboard' ? 'bg-green-600 text-white shadow-lg font-bold' : 'hover:bg-slate-800 text-slate-300'
+              }`}
+            >
+              <LayoutDashboard size={20} className="flex-shrink-0" />
+              <span>{t.dashboard || 'Dashboard'}</span>
+            </button>
+
+            <div className="my-4 border-t border-slate-700"></div>
+
+            {(role === ROLES.AUDITOR || role === ROLES.ORG_ADMIN || role === ROLES.SUPER_ADMIN) && (
+              <div className="text-xs text-slate-500 font-bold px-2 mb-2">{t.siteInspection}</div>
+            )}
+
+            {(role === ROLES.AUDITOR || role === ROLES.ORG_ADMIN || role === ROLES.SUPER_ADMIN) &&
+              Object.keys(FACILITY_TRANSLATIONS[lang] || FACILITY_TRANSLATIONS.ar).map(key => {
+                const Icon = FACILITY_ICONS[key] || Sprout;
+                const title = FACILITY_TRANSLATIONS[lang]?.[key]?.title || FACILITY_TRANSLATIONS.ar[key].title;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setActiveTab(key);
+                      setViewMode('inspection');
+                      setViewingRecordId(null);
+                      if (window.innerWidth < 768) setShowSidebar(false);
+                    }}
+                    className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
+                      activeTab === key && viewMode === 'inspection'
+                        ? 'bg-green-600 text-white shadow-lg font-bold'
+                        : 'hover:bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="truncate">{title}</span>
+                  </button>
+                );
+              })}
 
             <div className="my-4 border-t border-slate-700"></div>
 
             <button
-              onClick={() => {
-                setViewMode('history');
-                if (window.innerWidth < 768) setShowSidebar(false);
-              }}
-              className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
-                viewMode === 'history' ? 'bg-blue-600 text-white shadow-lg font-bold' : 'hover:bg-slate-800 text-slate-300'
-              }`}
-              aria-current={viewMode === 'history' ? 'page' : undefined}
-            >
-              <History size={20} className="flex-shrink-0" />
-              <span>{t.archive}</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setViewMode('analytics');
-                if (window.innerWidth < 768) setShowSidebar(false);
-              }}
-              className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
-                viewMode === 'analytics' ? 'bg-purple-600 text-white shadow-lg font-bold' : 'hover:bg-slate-800 text-slate-300'
-              }`}
-              aria-current={viewMode === 'analytics' ? 'page' : undefined}
-            >
-              <BarChart3 size={20} className="flex-shrink-0" />
-              <span>{t.analytics}</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setViewMode('comparisons');
-                if (window.innerWidth < 768) setShowSidebar(false);
-              }}
-              className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
-                viewMode === 'comparisons' ? 'bg-orange-600 text-white shadow-lg font-bold' : 'hover:bg-slate-800 text-slate-300'
-              }`}
-              aria-current={viewMode === 'comparisons' ? 'page' : undefined}
-            >
-              <ArrowLeftRight size={20} className="flex-shrink-0" />
-              <span>{t.comparisons}</span>
-            </button>
-
-            {(role === ROLES.SUPER_ADMIN || role === ROLES.ORG_ADMIN) && (
-              <>
-                <div className="my-4 border-t border-slate-700"></div>
-                <button
-                  onClick={() => {
-                    setViewMode('admin');
-                    if (window.innerWidth < 768) setShowSidebar(false);
-                  }}
-                  className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
-                    viewMode === 'admin' ? 'bg-indigo-600 text-white shadow-lg font-bold' : 'hover:bg-slate-800 text-slate-300'
-                  }`}
-                  aria-current={viewMode === 'admin' ? 'page' : undefined}
-                >
-                  <Settings size={20} className="flex-shrink-0" />
-                  <span>{t.adminPanel || 'Admin Panel'}</span>
-                </button>
-              </>
-            )}
-
-            <button
-              onClick={() => {
-                setViewMode('audits');
-                setActiveAudit(null);
-                if (window.innerWidth < 768) setShowSidebar(false);
-              }}
+              onClick={() => { setViewMode('audits'); setActiveAudit(null); if (window.innerWidth < 768) setShowSidebar(false); }}
               className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
                 viewMode === 'audits' ? 'bg-teal-600 text-white shadow-lg font-bold' : 'hover:bg-slate-800 text-slate-300'
               }`}
-              aria-current={viewMode === 'audits' ? 'page' : undefined}
             >
               <ClipboardCheck size={20} className="flex-shrink-0" />
               <span>{t.audits || 'Audits'}</span>
             </button>
 
             <button
-              onClick={() => {
-                setViewMode('ncs');
-                setActiveAudit(null);
-                if (window.innerWidth < 768) setShowSidebar(false);
-              }}
+              onClick={() => { setViewMode('ncs'); setActiveAudit(null); if (window.innerWidth < 768) setShowSidebar(false); }}
               className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
                 viewMode === 'ncs' ? 'bg-red-600 text-white shadow-lg font-bold' : 'hover:bg-slate-800 text-slate-300'
               }`}
-              aria-current={viewMode === 'ncs' ? 'page' : undefined}
             >
               <AlertOctagon size={20} className="flex-shrink-0" />
               <span>{t.ncs || 'NCs'}</span>
             </button>
+
+            {role !== ROLES.VIEWER && (
+              <>
+                <div className="my-4 border-t border-slate-700"></div>
+                <button
+                  onClick={() => { setViewMode('history'); if (window.innerWidth < 768) setShowSidebar(false); }}
+                  className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
+                    viewMode === 'history' ? 'bg-blue-600 text-white shadow-lg font-bold' : 'hover:bg-slate-800 text-slate-300'
+                  }`}
+                >
+                  <History size={20} className="flex-shrink-0" />
+                  <span>{t.archive}</span>
+                </button>
+              </>
+            )}
+
+            {(role === ROLES.ORG_ADMIN || role === ROLES.QUALITY_MGR || role === ROLES.SUPER_ADMIN || role === ROLES.VIEWER) && (
+              <>
+                <button
+                  onClick={() => { setViewMode('analytics'); if (window.innerWidth < 768) setShowSidebar(false); }}
+                  className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
+                    viewMode === 'analytics' ? 'bg-purple-600 text-white shadow-lg font-bold' : 'hover:bg-slate-800 text-slate-300'
+                  }`}
+                >
+                  <BarChart3 size={20} className="flex-shrink-0" />
+                  <span>{t.analytics}</span>
+                </button>
+              </>
+            )}
+
+            {(role === ROLES.ORG_ADMIN || role === ROLES.SUPER_ADMIN) && (
+              <button
+                onClick={() => { setViewMode('comparisons'); if (window.innerWidth < 768) setShowSidebar(false); }}
+                className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
+                  viewMode === 'comparisons' ? 'bg-orange-600 text-white shadow-lg font-bold' : 'hover:bg-slate-800 text-slate-300'
+                }`}
+              >
+                <ArrowLeftRight size={20} className="flex-shrink-0" />
+                <span>{t.comparisons}</span>
+              </button>
+            )}
+
+            {(role === ROLES.SUPER_ADMIN || role === ROLES.ORG_ADMIN) && (
+              <>
+                <div className="my-4 border-t border-slate-700"></div>
+                <button
+                  onClick={() => { setViewMode('admin'); if (window.innerWidth < 768) setShowSidebar(false); }}
+                  className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
+                    viewMode === 'admin' ? 'bg-indigo-600 text-white shadow-lg font-bold' : 'hover:bg-slate-800 text-slate-300'
+                  }`}
+                >
+                  <Settings size={20} className="flex-shrink-0" />
+                  <span>{t.adminPanel || 'Admin Panel'}</span>
+                </button>
+              </>
+            )}
           </nav>
 
           <div className="p-4 mt-auto border-t border-slate-800 text-xs text-slate-500 text-center flex flex-col gap-2">
@@ -747,7 +749,9 @@ function App() {
               </button>
               <div className="min-w-0">
                 <h2 className="text-base sm:text-xl font-bold text-gray-800 truncate max-w-[140px] xs:max-w-[200px] sm:max-w-none">
-                  {viewMode === 'inspection'
+                  {viewMode === 'dashboard'
+                    ? (t.dashboard || 'Dashboard')
+                    : viewMode === 'inspection'
                     ? FACILITY_TRANSLATIONS[lang]?.[activeTab]?.title || FACILITY_TRANSLATIONS.ar[activeTab].title
                     : viewMode === 'history'
                     ? t.historyHeader
@@ -853,6 +857,10 @@ function App() {
           </header>
 
           <main className="flex-1 overflow-auto p-4 sm:p-8" id="main-content" role="main">
+            {viewMode === 'dashboard' && (
+              <Dashboard t={t} onNavigate={(v) => { setViewMode(v); setActiveAudit(null); }} />
+            )}
+
             {viewMode === 'inspection' && (
               <div className="print-scale-down" id="printable-area">
                 <InspectionForm

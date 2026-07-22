@@ -218,6 +218,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ action, note }),
     }),
+
+  getDashboard: () => request('/api/dashboard'),
 };
 
 function dataURLtoBlob(dataurl) {
