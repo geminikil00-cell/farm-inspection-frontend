@@ -180,6 +180,44 @@ export const api = {
 
   deleteAudit: (id) =>
     request(`/api/audits/${id}`, { method: 'DELETE' }),
+
+  getNCStats: () => request('/api/ncs/stats'),
+
+  getNCs: (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.status) params.set('status', filters.status);
+    if (filters.severity) params.set('severity', filters.severity);
+    if (filters.assigned_to) params.set('assigned_to', filters.assigned_to);
+    if (filters.audit_id) params.set('audit_id', filters.audit_id);
+    const qs = params.toString();
+    return request(`/api/ncs${qs ? `?${qs}` : ''}`);
+  },
+
+  getNC: (id) => request(`/api/ncs/${id}`),
+
+  createNC: (data) =>
+    request('/api/ncs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateNC: (id, data) =>
+    request(`/api/ncs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  updateNCStatus: (id, status, note) =>
+    request(`/api/ncs/${id}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status, note }),
+    }),
+
+  addNCTimeline: (id, action, note) =>
+    request(`/api/ncs/${id}/timeline`, {
+      method: 'POST',
+      body: JSON.stringify({ action, note }),
+    }),
 };
 
 function dataURLtoBlob(dataurl) {

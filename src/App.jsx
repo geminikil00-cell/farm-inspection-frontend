@@ -4,7 +4,7 @@ import {
   Wrench, Trash2, Waves, Package, Users, ClipboardList,
   History, BarChart3, ChevronLeft, ChevronRight, Save,
   Printer, Plus, ArrowLeftRight, Trash, Globe, Shield, RefreshCw,
-  Menu, X, FileDown, LogOut, Settings, ShieldCheck, ClipboardCheck
+  Menu, X, FileDown, LogOut, Settings, ShieldCheck, ClipboardCheck, AlertOctagon
 } from 'lucide-react';
 import { api } from './api';
 import { useAuth, ROLES } from './context/AuthContext';
@@ -19,6 +19,7 @@ import { LoginPage } from './components/LoginPage';
 import { AdminPortal } from './components/AdminPortal';
 import { AuditList } from './components/AuditList';
 import { AuditExecution } from './components/AuditExecution';
+import { NCKanbanBoard } from './components/NCKanbanBoard';
 
 const INITIAL_ROW = {
   status: '',
@@ -694,6 +695,21 @@ function App() {
               <ClipboardCheck size={20} className="flex-shrink-0" />
               <span>{t.audits || 'Audits'}</span>
             </button>
+
+            <button
+              onClick={() => {
+                setViewMode('ncs');
+                setActiveAudit(null);
+                if (window.innerWidth < 768) setShowSidebar(false);
+              }}
+              className={`w-full text-start p-3 rounded-lg flex items-center gap-3 transition-colors focus-ring ${
+                viewMode === 'ncs' ? 'bg-red-600 text-white shadow-lg font-bold' : 'hover:bg-slate-800 text-slate-300'
+              }`}
+              aria-current={viewMode === 'ncs' ? 'page' : undefined}
+            >
+              <AlertOctagon size={20} className="flex-shrink-0" />
+              <span>{t.ncs || 'NCs'}</span>
+            </button>
           </nav>
 
           <div className="p-4 mt-auto border-t border-slate-800 text-xs text-slate-500 text-center flex flex-col gap-2">
@@ -739,6 +755,8 @@ function App() {
                     ? t.comparisons
                     : viewMode === 'audits'
                     ? (activeAudit ? (activeAudit.template_name || 'Audit') : (t.audits || 'Audits'))
+                    : viewMode === 'ncs'
+                    ? (t.ncs || 'Non-Conformances')
                     : viewMode === 'admin'
                     ? t.adminPanel || 'Admin Panel'
                     : t.analytics}
@@ -914,6 +932,10 @@ function App() {
                 t={t}
                 onBack={() => { setActiveAudit(null); }}
               />
+            )}
+
+            {viewMode === 'ncs' && (
+              <NCKanbanBoard t={t} />
             )}
           </main>
         </div>
