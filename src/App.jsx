@@ -21,6 +21,7 @@ import { AuditList } from './components/AuditList';
 import { AuditExecution } from './components/AuditExecution';
 import { NCKanbanBoard } from './components/NCKanbanBoard';
 import { Dashboard } from './components/Dashboard';
+import { AdvancedAnalytics } from './components/AdvancedAnalytics';
 
 const INITIAL_ROW = {
   status: '',
@@ -898,17 +899,7 @@ function App() {
             )}
 
             {viewMode === 'analytics' && (
-              analyticsLoading ? (
-                <div className="text-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div><p className="text-gray-500">{t.loading}</p></div>
-              ) : (
-                <AnalyticsDashboard
-                  summaryData={analyticsSummary}
-                  history={history}
-                  t={t}
-                  lang={lang}
-                  onFilterChange={fetchAnalytics}
-                />
-              )
+              <AdvancedAnalytics t={t} />
             )}
 
             {viewMode === 'comparisons' && (

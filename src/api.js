@@ -220,6 +220,15 @@ export const api = {
     }),
 
   getDashboard: () => request('/api/dashboard'),
+
+  getAnalyticsAudits: (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.year) params.set('year', filters.year);
+    const qs = params.toString();
+    return request(`/api/analytics/audits${qs ? `?${qs}` : ''}`);
+  },
+
+  getAnalyticsNCs: () => request('/api/analytics/ncs'),
 };
 
 function dataURLtoBlob(dataurl) {
