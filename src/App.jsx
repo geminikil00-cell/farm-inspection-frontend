@@ -21,6 +21,8 @@ import { AuditExecution } from './components/AuditExecution';
 import { NCKanbanBoard } from './components/NCKanbanBoard';
 import { Dashboard } from './components/Dashboard';
 import { AdvancedAnalytics } from './components/AdvancedAnalytics';
+import { AdminLayout } from './components/AdminLayout';
+import { AdminDashboard } from './components/AdminDashboard';
 
 const INITIAL_ROW = {
   status: '',

@@ -229,6 +229,31 @@ export const api = {
   },
 
   getAnalyticsNCs: () => request('/api/analytics/ncs'),
+
+  system: {
+    getUnits: () => request('/api/system/units'),
+    createUnit: (data) => request('/api/system/units', { method: 'POST', body: JSON.stringify(data) }),
+    updateUnit: (id, data) => request(`/api/system/units/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteUnit: (id) => request(`/api/system/units/${id}`, { method: 'DELETE' }),
+    getUnitUsers: (id) => request(`/api/system/units/${id}/users`),
+    createUnitUser: (unitId, data) => request(`/api/system/units/${unitId}/users`, { method: 'POST', body: JSON.stringify(data) }),
+    updateUnitUser: (unitId, userId, data) => request(`/api/system/units/${unitId}/users/${userId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteUnitUser: (unitId, userId) => request(`/api/system/units/${unitId}/users/${userId}`, { method: 'DELETE' }),
+    getUnitsAudits: () => request('/api/system/units/audits'),
+    getUnitAudits: (id) => request(`/api/system/units/${id}/audits`),
+  },
+
+  notifications: {
+    get: () => request('/api/notifications'),
+    getUnreadCount: () => request('/api/notifications/unread-count'),
+    markRead: (id) => request(`/api/notifications/${id}/read`, { method: 'PUT' }),
+    markAllRead: () => request('/api/notifications/mark-all-read', { method: 'PUT' }),
+  },
+
+  settings: {
+    changePassword: (currentPassword, newPassword) =>
+      request('/api/settings/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
+  },
 };
 
 function dataURLtoBlob(dataurl) {
