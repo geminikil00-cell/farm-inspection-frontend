@@ -2,10 +2,16 @@ import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard, Building2, ClipboardCheck, Users, FileText,
   MessageSquare, Bell, Settings, LogOut, Shield, Menu, X, ChevronLeft,
-  ChevronRight, Sprout
+  ChevronRight, Sprout, AlertOctagon
 } from 'lucide-react';
 import { useAuth, ROLES } from '../context/AuthContext';
 import { api } from '../api';
+
+const ICON_MAP = {
+  dashboard: LayoutDashboard, units: Building2, audits: ClipboardCheck,
+  users: Users, templates: FileText, messages: MessageSquare,
+  notifications: Bell, settings: Settings, ncs: AlertOctagon,
+};
 
 const TABS = [
   { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -18,8 +24,18 @@ const TABS = [
   { id: 'settings', icon: Settings, label: 'Settings' },
 ];
 
-export function AdminLayout({ children, activeTab, onTabChange, t }) {
+export function AdminLayout({ children, activeTab, onTabChange, tabs, t }) {
   const { username, role, orgName, logout } = useAuth();
+  const tabList = tabs || [
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'units', label: 'Units Management' },
+    { id: 'audits', label: 'Conducted Audits' },
+    { id: 'users', label: 'Users Management' },
+    { id: 'templates', label: 'Template Builder' },
+    { id: 'messages', label: 'Messages' },
+    { id: 'notifications', label: 'Notifications' },
+    { id: 'settings', label: 'Settings' },
+  ];
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('adminSidebarCollapsed') === 'true');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -65,7 +81,9 @@ export function AdminLayout({ children, activeTab, onTabChange, t }) {
 
         {/* Nav */}
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-          {TABS.map(tab => (
+          {tabList.map(tab => {
+            const Icon = ICON_MAP[tab.id] || LayoutDashboard;
+            return (
             <button
               key={tab.id}
               onClick={() => { onTabChange(tab.id); setSidebarOpen(false); }}
@@ -75,7 +93,7 @@ export function AdminLayout({ children, activeTab, onTabChange, t }) {
               title={collapsed ? tab.label : undefined}
             >
               <span className="relative flex-shrink-0">
-                <tab.icon size={20} />
+                <Icon size={20} />
                 {tab.id === 'notifications' && unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                     {unreadCount > 9 ? '9+' : unreadCount}
@@ -84,7 +102,7 @@ export function AdminLayout({ children, activeTab, onTabChange, t }) {
               </span>
               {!collapsed && <span>{tab.label}</span>}
             </button>
-          ))}
+          );})}
         </nav>
 
         {/* User footer */}
@@ -118,7 +136,7 @@ export function AdminLayout({ children, activeTab, onTabChange, t }) {
             </button>
             <div>
               <h1 className="text-lg font-bold text-slate-800">
-                {TABS.find(t => t.id === activeTab)?.label || ''}
+                {tabList.find(t => t.id === activeTab)?.label || ''}
               </h1>
             </div>
           </div>

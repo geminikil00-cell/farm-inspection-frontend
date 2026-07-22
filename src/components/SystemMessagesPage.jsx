@@ -17,16 +17,16 @@ export function SystemMessagesPage() {
   const bottomRef = useRef(null);
 
   const loadThreads = async () => {
-    try { const r = await api.request('/api/messages/threads'); setThreads(r.threads || []); } catch (_) {}
+    try { const r = await api.messages.getThreads(); setThreads(r.threads || []); } catch (_) {}
     setLoading(false);
   };
 
   const loadMessages = async (threadId) => {
-    try { const r = await api.request(`/api/messages/${threadId}`); setMessages(r.thread?.messages || []); } catch (_) {}
+    try { const r = await api.messages.getThread(threadId); setMessages(r.thread?.messages || []); } catch (_) {}
   };
 
   const loadRecipients = async () => {
-    try { const r = await api.request('/api/messages/recipients'); setRecipients(r.recipients || []); } catch (_) {}
+    try { const r = await api.messages.getRecipients(); setRecipients(r.recipients || []); } catch (_) {}
   };
 
   useEffect(() => { loadThreads(); const i = setInterval(loadThreads, 15000); return () => clearInterval(i); }, []);
@@ -37,7 +37,7 @@ export function SystemMessagesPage() {
   const handleNewChat = async () => {
     if (!selectedRecipient || !subject.trim()) return;
     try {
-      const r = await api.request('/api/messages', { method: 'POST', body: JSON.stringify({ participant_id: selectedRecipient, subject: subject.trim(), content: text }) });
+      const r = await api.messages.createThread({ participant_id: selectedRecipient, subject: subject.trim(), content: text });
       setCompose(false);
       setSelectedRecipient(''); setSubject(''); setText('');
       loadThreads();
@@ -49,7 +49,7 @@ export function SystemMessagesPage() {
   const handleSend = async () => {
     if (!text.trim() || !activeThread) return;
     try {
-      const r = await api.request(`/api/messages/${activeThread.id}/reply`, { method: 'POST', body: JSON.stringify({ content: text }) });
+      const r = await api.messages.reply(activeThread.id, text);
       setMessages(prev => [...prev, r.message]);
       setText('');
       loadThreads();
@@ -64,7 +64,6 @@ export function SystemMessagesPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex" style={{ height: '65vh' }}>
-        {/* Thread list */}
         <div className="w-80 border-r border-slate-200 flex flex-col">
           <div className="p-3 border-b flex items-center justify-between">
             <div className="relative flex-1 mr-2">
@@ -86,7 +85,6 @@ export function SystemMessagesPage() {
           </div>
         </div>
 
-        {/* Chat area */}
         <div className="flex-1 flex flex-col">
           {activeThread ? (
             <>

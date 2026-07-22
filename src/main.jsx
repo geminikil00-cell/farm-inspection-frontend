@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import { AuthProvider, ROLES, useAuth } from './context/AuthContext'
 import { SystemAdminApp } from './components/SystemAdminApp'
+import { UnitAdminApp } from './components/UnitAdminApp'
 import { LoginPage } from './components/LoginPage'
 import { LANGUAGES, UI_TRANSLATIONS } from './translations'
 import './index.css'
@@ -37,21 +38,23 @@ class ErrorBoundary extends React.Component {
 
 function Root() {
   const { role, isAuthenticated } = useAuth();
-  const isAdminPath = window.location.pathname.startsWith('/admin');
-  const isAdmin = role === ROLES.SUPER_ADMIN || role === ROLES.ORG_ADMIN;
+  const path = window.location.pathname;
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN;
+  const isOrgAdmin = role === ROLES.ORG_ADMIN;
 
   if (!isAuthenticated) {
     const t = UI_TRANSLATIONS.en;
     return <LoginPage t={t} />;
   }
 
-  if (isAdminPath && isAdmin) {
+  if (path.startsWith('/admin') && !path.startsWith('/unit-admin')) {
+    if (!isSuperAdmin) { window.location.href = '/'; return null; }
     return <SystemAdminApp />;
   }
 
-  if (isAdminPath && !isAdmin) {
-    window.location.href = '/';
-    return null;
+  if (path.startsWith('/unit-admin')) {
+    if (!isOrgAdmin && !isSuperAdmin) { window.location.href = '/'; return null; }
+    return <UnitAdminApp />;
   }
 
   return <App />;

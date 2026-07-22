@@ -254,6 +254,16 @@ export const api = {
     changePassword: (currentPassword, newPassword) =>
       request('/api/settings/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
   },
+
+  messages: {
+    getThreads: () => request('/api/messages/threads'),
+    getThread: (id) => request(`/api/messages/${id}`),
+    createThread: (data) => request('/api/messages', { method: 'POST', body: JSON.stringify(data) }),
+    reply: (id, content) => request(`/api/messages/${id}/reply`, { method: 'POST', body: JSON.stringify({ content }) }),
+    getRecipients: () => request('/api/messages/recipients'),
+  },
+
+  request,
 };
 
 function dataURLtoBlob(dataurl) {
