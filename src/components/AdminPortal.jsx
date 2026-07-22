@@ -35,6 +35,10 @@ export function AdminPortal({ t }) {
   const canManage = role === ROLES.SUPER_ADMIN || role === ROLES.ORG_ADMIN;
 
   const loadData = async () => {
+    if (!canManage) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {

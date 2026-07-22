@@ -13,7 +13,6 @@ import { LANGUAGES, UI_TRANSLATIONS } from './translations';
 import { FACILITY_TRANSLATIONS } from './translations/criteria';
 import { InspectionForm } from './components/InspectionForm';
 import { HistoryPanel } from './components/HistoryPanel';
-import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { ComparisonPanel } from './components/ComparisonPanel';
 import { LoginPage } from './components/LoginPage';
 import { AdminPortal } from './components/AdminPortal';
@@ -116,10 +115,6 @@ function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState(null);
-  const [historyFull, setHistoryFull] = useState(null);
-  const [historyFullLoading, setHistoryFullLoading] = useState(false);
-  const [analyticsSummary, setAnalyticsSummary] = useState(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [comparisonData, setComparisonData] = useState(null);
   const [comparisonLoading, setComparisonLoading] = useState(false);
   const [activeAudit, setActiveAudit] = useState(null);
@@ -222,38 +217,6 @@ function App() {
     }
   };
 
-  const fetchHistoryFull = async () => {
-    setHistoryFullLoading(true);
-    try {
-      const data = await api.getRecords();
-      const records = data.records || [];
-      const fullRecords = [];
-      for (const r of records) {
-        try {
-          const full = await api.getRecord(r.id);
-          fullRecords.push(normalizeRecord(full.record));
-        } catch (_) {}
-      }
-      setHistoryFull(fullRecords);
-    } catch (err) {
-      console.error("Error fetching full records:", err);
-    } finally {
-      setHistoryFullLoading(false);
-    }
-  };
-
-  const fetchAnalytics = async (year, quarter) => {
-    setAnalyticsLoading(true);
-    try {
-      const data = await api.getAnalyticsSummary({ year, quarter });
-      setAnalyticsSummary(data);
-    } catch (err) {
-      console.error("Analytics fetch error:", err);
-    } finally {
-      setAnalyticsLoading(false);
-    }
-  };
-
   const fetchComparison = async (params) => {
     setComparisonLoading(true);
     try {
@@ -273,14 +236,8 @@ function App() {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if ((viewMode === 'analytics' || viewMode === 'comparisons') && historyFull === null && isAuthenticated) {
-      fetchHistoryFull();
-    }
-  }, [viewMode, historyFull, isAuthenticated]);
-
-  useEffect(() => {
-    if (viewMode === 'analytics' && isAuthenticated) {
-      fetchAnalytics();
+    if (viewMode === 'comparisons' && comparisonData === null && isAuthenticated) {
+      fetchComparison({});
     }
   }, [viewMode, isAuthenticated]);
 
@@ -475,8 +432,6 @@ function App() {
       });
 
       fetchHistory();
-      setHistoryFull(null);
-      setAnalyticsSummary(null);
       setComparisonData(null);
 
       if (window.confirm(t.confirmSave)) {
@@ -493,8 +448,6 @@ function App() {
       try {
         await api.deleteRecord(id);
         setHistory(prev => prev.filter(r => r.id !== id));
-        setHistoryFull(prev => prev ? prev.filter(r => r.id !== id) : prev);
-        setAnalyticsSummary(null);
       } catch (err) {
         console.error("Delete record error:", err);
         alert("Deletion Error: " + err.message);
